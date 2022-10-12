@@ -47,10 +47,30 @@ def format_time(s):
     (min, sec) = divmod(s, 60)
     return f'{min}:{sec:02d}'
 
+def copy_pngs(src_root, dst_root):
+    """Copy .png files from src_root to dst_root"""
+    if not isinstance(src_root, pathlib.Path):
+        src_root = pathlib.Path(src_root)
+    if not isinstance(dst_root, pathlib.Path):
+        dst_root = pathlib.Path(dst_root)
+    stack = [src_root]
+    while stack:
+        path = stack.pop()
+        for subpath in path.iterdir():
+            if subpath.is_dir():
+                stack.append(subpath)
+                continue
+            if not subpath.as_posix().endswith('.png'):
+                continue
+            dst = dst_root / subpath.relative_to(src_root)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(subpath, dst)
+    return
+
 pathlib.Path('nitrc/common/comparison/data').mkdir(parents=True, exist_ok=True)
-shutil.copytree('data/runs', 'nitrc/www/comparison/segmentation/runs')
-shutil.copytree('data/source', 'nitrc/www/comparison/segmentation/source')
-shutil.copytree('data/tools', 'nitrc/www/comparison/segmentation/tools')
+copy_pngs('data/runs', 'nitrc/www/comparison/segmentation/runs')
+copy_pngs('data/source', 'nitrc/www/comparison/segmentation/source')
+copy_pngs('data/tools', 'nitrc/www/comparison/segmentation/tools')
 
 progname = os.path.basename(sys.argv[0])
 
