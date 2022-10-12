@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import pathlib
+import shutil
+import json
+
+import pandas as pd
+
+disclaimer = """
+The tool performance pages are in beta.  Please see the NITRC
+<a href="https://www.nitrc.org/projects/performance/">Tool
+Performance Project</a> for more information and contact <a
+href="mailto:moderator@nitrc.org">moderator@nitrc.org</a> with questions
+or comments.
+"""
+
+overview_method = """
+Accuracy is reported as Dice overlaps between a tool's segmentation
+and the <a href="https://www.nitrc.org/projects/ibsr/">Internet Brain
+Segmentation Repository</a> (IBSR) manual segmentation for each of the
+18 IBSR subjects.  The inter-tool comparison (on the left below) shows
+the median Dice coefficient for each tissue class.  The overlaps for
+{tool_name} (from which the median values are drawn) are shown in the
+plot on the right.
+"""
+
+subject_method = """
+Overlap coefficients for each tissue class are shown here for each
+IBSR subject.  Select a subject below to see the {tool_name} results
+compared to other tools.
+"""
+
+test_retest_method = """
+{tool_name} was run on each scan in the <a
+href="https://www.nitrc.org/projects/bstp/">Brain Segmentation Testing
+Protocol</a> (BSTP) between-scanner test/retest dataset.  Select a
+subject below to see volumes for each subject across the subject's scans.
+"""
+
+runtime_post = 'on NITRC-CE v0.54.0 on AWS t3.xlarge'
+
+def format_time(s):
+    s = int(round(s))
+    (min, sec) = divmod(s, 60)
+    return f'{min}:{sec:02d}'
+
+pathlib.Path('nitrc/common/comparison/data').mkdir(parents=True, exist_ok=True)
+shutil.copytree('data/runs', 'nitrc/www/comparison/segmentation/runs')
+shutil.copytree('data/source', 'nitrc/www/comparison/segmentation/source')
+shutil.copytree('data/tools', 'nitrc/www/comparison/segmentation/tools')
+
+progname = os.path.basename(sys.argv[0])
+
+versions = pd.read_csv('data/versions.csv')
+times = pd.read_csv('data/times.csv')
+overlaps = pd.read_csv('data/overlaps.csv')
+volumes = pd.read_csv('data/volumes.csv')
+
+for tool in ['fs', 'fsl', 'kwyk-bwn_multi']:
+
+    print(tool)
+
+    tool_dir = pathlib.Path('tools') / tool
+
+    tool_name = (tool_dir / 'name').read_text().strip()
+    tool_id = (tool_dir / 'nitrc_id').read_text().strip()
+    tool_version = versions[versions['Tool']==tool]['Version'].unique()
+    if not tool_version:
+        print(f'{progname}: no versions found for {tool}', file=sys.stderr)
+        sys.exit(1)
+    if len(tool_version) > 1:
+        msg = f'{progname}: multiple versions found for {tool}'
+        print(msg, file=sys.stderr)
+        sys.exit(1)
+    tool_version = tool_version[0]
+    tool_times = times[times['Tool']==tool]['Time']
+    runtime = format_time(tool_times.mean()) \
+            + ' +- ' \
+            + format_time(tool_times.std()) \
+            + ' ' + runtime_post
+
+    data = {
+        'tr_name': tool_name, 
+        'version': tool_version, 
+        'analysis': {
+            'disclaimer': disclaimer, 
+            'raw-data-link' : 'https://www.nitrc.org/frs/?group_id=1591', 
+            'type': 'segmentation', 
+            'command_line': (tool_dir / 'command_line').read_text().strip(), 
+            'runtime': runtime, 
+            'sections': []
+        }, 
+    }
+
+    accuracy_url = f'/comparison/segmentation/tools/{tool}/accuracy.png'
+    tool_accuracy_url = f'/comparison/segmentation/tools/{tool}/tool_accuracy.png'
+    section = {
+        'type': 'basic', 
+        'title' : 'Accuracy Overview (IBSR)',
+        'method': overview_method.format(tool_name=tool_name).strip(), 
+        'graphics': [
+            { 'image_type': 'single', 'url': accuracy_url }, 
+            { 'image_type': 'single', 'url': tool_accuracy_url }, 
+        ]
+    }
+    data['analysis']['sections'].append(section)
+
+    section = {
+        'type': 'select', 
+        'id': 'subject-accuracy', 
+        'title' : 'Subject Accuracy (IBSR)',
+        'method': subject_method.format(tool_name=tool_name).strip(), 
+        'subjects': []
+    }
+    for subject in [ f'IBSR_{i:02d}' for i in range(1, 19) ]:
+        url = f'/comparison/segmentation/tools/{tool}/accuracy/{subject}.png'
+        seg_anat_url = f'/comparison/segmentation/source/{subject}/anat.png'
+        seg_gs_url = f'/comparison/segmentation/source/{subject}/seg.png'
+        seg_url = f'/comparison/segmentation/runs/{tool}/{subject}/seg.png'
+        subject_overlaps = overlaps[overlaps['Subject']==subject]
+        tool_overlaps = subject_overlaps[subject_overlaps['Tool']==tool]
+        vals = []
+        for structure in ['CSF', 'GM', 'WM']:
+            df = tool_overlaps[tool_overlaps['Structure']==structure]
+            df.index = range(len(df))
+            val = '{}: {:.2f}'.format(structure, df['Dice coefficient'][0])
+            vals.append(val)
+        caption = ', '.join(vals)
+        subject = {
+            'name': subject, 
+            'id': subject, 
+            'graphics': [
+                { 'image_type': 'single', 'url': url, 'caption': caption }, 
+                {
+                    'image_type': 'carousel', 
+                    'urls': [seg_anat_url, seg_gs_url, seg_url], 
+                    'caption': f'IBSR anat - IBSR seg - {tool} seg'
+                }
+            ]
+        }
+        section['subjects'].append(subject)
+    data['analysis']['sections'].append(section)
+
+    section = {
+        'type': 'select', 
+        'id': 'retest', 
+        'title': 'Test/Retest Accuracy', 
+        'method': test_retest_method.format(tool_name=tool_name).strip(), 
+        'subjects': []
+    }
+    for subject in [ f'BSTP_{s}{i}' for s in ('A', 'B') for i in range(1, 5) ]:
+        url = f'/comparison/segmentation/tools/{tool}/test-retest/{subject}.png'
+        subject = {
+            'name': subject, 
+            'id': subject, 
+            'graphics': [
+                { 'image_type': 'single', 'url': url }
+            ]
+        }
+        section['subjects'].append(subject)
+    data['analysis']['sections'].append(section)
+
+    with open(f'nitrc/common/comparison/data/{tool_id}.json', 'w') as f:
+        json.dump(data, f, indent=4)
+
+sys.exit(0)
+
+# eof

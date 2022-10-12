@@ -1,0 +1,43 @@
+#!/bin/sh -e
+
+mkdir -p data/source data/runs
+
+for d in source/*
+do
+    echo $d
+    target=data/source/`basename $d`
+    ! mkdir $target
+    cp $d/*.png $target
+done
+
+for d in runs/*
+do
+    tool=`basename $d`
+    for dd in $d/*
+    do
+        echo $dd
+        subject=`basename $dd`
+        target=data/runs/$tool/$subject
+        mkdir -p $target
+        for f in time \
+                 version \
+                 data/overlaps.csv \
+                 data/vol.csv \
+                 data/seg.png \
+                 data/seg.nii.gz \
+                 status \
+                 status.preprocess \
+                 status.postprocess
+        do
+            if [ -e $dd/$f ] ; then cp $dd/$f $target ; fi
+        done
+    done
+done
+
+./bin/compile_csv
+
+./bin/create_plots
+
+exit 0
+
+# eof

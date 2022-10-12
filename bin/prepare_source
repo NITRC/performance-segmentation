@@ -1,0 +1,82 @@
+#!/bin/sh -e
+
+! mkdir tmp
+! mkdir source
+
+unzip -d tmp raw/bstp/OASIS_Baseline_scan_144_healthy_participants.zip
+unzip -d tmp raw/bstp/OASIS_Follow_up_scan_144_healthy_participants.zip
+unzip -d tmp raw/bstp/reproducibilility_test_retest.zip
+unzip -d tmp raw/bstp/reproducibility_different_scanner.zip
+
+for f in tmp/Baseline_scan/*.img
+do
+    subject=BSTP_`basename $f | sed 's/_MR.*//'`-1
+    ! mkdir source/$subject
+    mri_convert $f source/$subject/anat.nii.gz
+done
+
+for f in tmp/Follow_up_scan/*.img
+do
+    subject=BSTP_`basename $f | sed 's/_MR.*//'`-2
+    ! mkdir source/$subject
+    mri_convert $f source/$subject/anat.nii.gz
+done
+
+for f in tmp/reproducibilility_test_retest/*.img
+do
+    subject=BSTP_`basename $f | sed 's/^\(.*\)_MR\(.\).*$/\1-\2/'`
+    ! mkdir source/$subject
+    mri_convert $f source/$subject/anat.nii.gz
+done
+
+for f in tmp/reproducibility_different_scanner/*.img
+do
+    subject=BSTP_`basename $f | sed 's/^.*_\([AB][1-4]\)_.*0\([1-9]\)\....$/\1-\2/'`
+    ! mkdir source/$subject
+    mri_convert $f \
+                -iid -1 0 0 \
+                -ijd 0 1 0 \
+                -ikd 0 0 1 \
+                -ic 0 0 0 \
+                source/$subject/anat.nii.gz
+
+done
+
+for i in `seq -f '%02.f' 18`
+do
+    subject=IBSR_$i
+    tar zxvf raw/ibsr/${subject}_ANALYZE.tgz -C tmp
+    # see https://www.nitrc.org/forum/forum.php?thread_id=12325&forum_id=151
+    cp tmp/$subject/images/analyze/${subject}_ana.hdr \
+       tmp/$subject/segmentation/analyze/${subject}_segTRI_ana.hdr
+    cp tmp/$subject/images/analyze/${subject}_ana.mat \
+       tmp/$subject/segmentation/analyze/${subject}_segTRI_ana.mat
+    ! mkdir source/$subject
+    mri_convert tmp/$subject/images/analyze/${subject}_ana.img \
+                source/$subject/anat.nii.gz
+    mri_convert tmp/$subject/segmentation/analyze/${subject}_segTRI_ana.img \
+                source/$subject/seg.nii.gz
+done
+
+for s in source/*
+do
+    vol-slice --size 256 \
+              --directions C \
+              --suppress-labels \
+              $s/anat.nii.gz \
+              $s/anat.png
+    if [ -e $s/seg.nii.gz ]
+    then
+        vol-slice --size 256 \
+                  --directions C \
+                  --suppress-labels \
+                  --overlay $s/seg.nii.gz \
+                  --overlay-lut lib/tri.colors \
+                  $s/anat.nii.gz \
+                  $s/seg.png
+    fi
+done
+
+exit 0
+
+# eof

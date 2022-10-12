@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+
+import sys
+import pathlib
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = [5, 3.75]
+
+tool_names = {}
+for tool_dir in pathlib.Path('tools').iterdir():
+    tool_names[tool_dir.name] = (tool_dir / 'name').read_text().strip()
+
+tools_dir = pathlib.Path('data/tools')
+tools_dir.mkdir(exist_ok=True)
+
+volumes = pd.read_csv('data/volumes.csv')
+overlaps = pd.read_csv('data/overlaps.csv')
+
+for tool in overlaps['Tool'].unique():
+
+    print(tool)
+    tool_dir = tools_dir / tool
+    tool_dir.mkdir(exist_ok=True)
+    tool_name = tool_names[tool]
+
+    print('    accuracy.png')
+    df = overlaps.groupby(['Tool', 'Structure']).median().reset_index()
+    tool_data = df[df['Tool']==tool]
+    other_data = df[df['Tool']!=tool]
+    plt.clf()
+    plt.plot(
+        tool_data['Dice coefficient'], 
+        tool_data['Structure'], 
+        'o', 
+        label=tool_name
+    )
+    plt.plot(
+        other_data['Dice coefficient'], 
+        other_data['Structure'], 
+        'x', 
+        label='Other tools'
+    )
+    plt.xlabel('Dice coefficient')
+    plt.ylabel('Structure')
+    plt.title('Median Subject Overlap')
+    plt.legend()
+    plt.savefig(tool_dir / 'accuracy.png')
+
+    print('    tool_accuracy.png')
+    df = overlaps[overlaps['Tool']==tool]
+    plt.clf()
+    plt.plot(df['Dice coefficient'], df['Structure'], 'x')
+    plt.xlabel('Dice coefficient')
+    plt.ylabel('Structure')
+    plt.title(f'{tool_name} Overlaps')
+    plt.savefig(tool_dir / 'tool_accuracy.png')
+
+    plots_path = tool_dir / 'accuracy'
+    plots_path.mkdir(exist_ok=True)
+    for subject in [ f'IBSR_{i:02d}' for i in range(1, 19) ]:
+        print(f'    accuracy/{subject}.png')
+        subject_overlaps = overlaps[overlaps['Subject']==subject]
+        tool_overlaps = subject_overlaps[subject_overlaps['Tool']==tool]
+        other_overlaps = subject_overlaps[subject_overlaps['Tool']!=tool]
+        plt.clf()
+        plt.plot(
+            tool_overlaps['Dice coefficient'], 
+            tool_overlaps['Structure'], 
+            'o', 
+            label=tool_name
+        )
+        plt.plot(
+            other_overlaps['Dice coefficient'], 
+            other_overlaps['Structure'], 
+            'x', 
+            label='Other tools'
+        )
+        plt.xlabel('Dice coefficient')
+        plt.ylabel('Structure')
+        plt.title(f'{tool_name} Overlaps: {subject}')
+        plt.legend()
+        plt.savefig(plots_path / (subject + '.png'))
+
+    plots_path = tool_dir / 'test-retest'
+    plots_path.mkdir(exist_ok=True)
+    for subject in [ f'BSTP_{s}{i}' for s in ('A', 'B') for i in range(1, 5) ]:
+        print(f'    test-retest/{subject}.png')
+        ind = (volumes['Subject']==subject) & (volumes['Tool']==tool)
+        subject_volumes = volumes[ind]
+        plt.clf()
+        plt.plot(
+            subject_volumes['Volume']/1000, 
+            subject_volumes['Structure'], 
+            'x'
+        )
+        plt.xlabel('Volume (cc)')
+        plt.ylabel('Structure')
+        plt.title(f'{tool_name} Volumes: {subject}')
+        plt.savefig(plots_path / (subject + '.png'))
+
+sys.exit(0)
+
+# eof

@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+
+import sys
+import pathlib
+import re
+
+import pandas as pd
+
+progname = pathlib.Path(sys.argv[0]).name
+
+time_re = re.compile('real\s+(\d+)m(\d+)([\d\.]+)?s')
+
+out_dir = pathlib.Path('data')
+
+vols = None
+overlaps = None
+times = None
+tools = []
+subjects = []
+runs = []
+versions = []
+for tool_dir in pathlib.Path('data/runs').iterdir():
+    tool = tool_dir.name
+    for run_dir in tool_dir.iterdir():
+        print(run_dir)
+        errors = []
+        sp = run_dir / 'status'
+        if not sp.exists():
+            print(f'ERROR: {sp} does not exist; bailing out')
+            sys.exit(1)
+        for s in ['status.preprocess', 'status', 'status.postprocess']:
+            sp = run_dir / s
+            if sp.exists():
+                status = sp.read_text().strip()
+                if status != '0':
+                    errors.append(f'{s} = {status}')
+        if errors:
+            print('    ERROR: ' + ', '.join(errors) + '; skipping')
+            continue
+        subject = run_dir.name
+        if subject.startswith('IBSR'):
+            run = 1
+        else:
+            (subject, run) = subject.rsplit('-', 1)
+            run = int(run)
+        with open(run_dir / 'version') as f:
+            version = f.read().strip()
+        tools.append(tool)
+        subjects.append(subject)
+        runs.append(run)
+        versions.append(version)
+        vol_path = run_dir / 'vol.csv'
+        run_vols = pd.read_csv(vol_path)
+        run_vols = run_vols[run_vols['Structure']!='Unknown']
+        run_vols.index = range(len(run_vols))
+        del run_vols['Index']
+        del run_vols['Voxels']
+        run_vols.insert(0, 'Tool', pd.Series([tool]*len(run_vols)))
+        run_vols.insert(1, 'Subject', pd.Series([subject]*len(run_vols)))
+        run_vols.insert(2, 'Run', pd.Series([run]*len(run_vols)))
+        if vols is None:
+            vols = run_vols
+        else:
+            vols = pd.concat([vols, run_vols])
+        overlaps_path = run_dir / 'overlaps.csv'
+        if overlaps_path.exists():
+            run_overlaps = pd.read_csv(overlaps_path)
+            run_overlaps = run_overlaps[run_overlaps['Structure']!='Unknown']
+            run_overlaps.index = range(len(run_overlaps))
+            del run_overlaps['Index']
+            run_overlaps.insert(0, 'Tool', pd.Series([tool]*len(run_overlaps)))
+            run_overlaps.insert(1, 'Subject', pd.Series([subject]*len(run_overlaps)))
+            run_overlaps.insert(2, 'Run', pd.Series([run]*len(run_overlaps)))
+            if overlaps is None:
+                overlaps = run_overlaps
+            else:
+                overlaps = pd.concat([overlaps, run_overlaps])
+        with open(run_dir / 'time') as f:
+            for line in f:
+                m = time_re.search(line)
+                if m:
+                    (min, sec) = (int(val) for val in m.groups()[:2])
+                    time = 60 * min + sec
+                    break
+            else:
+                time = None
+        run_time = pd.DataFrame({
+            'Tool': [tool], 
+            'Subject': [subject], 
+            'Run': [run], 
+            'Time': [time]
+        })
+        if times is None:
+            times = run_time
+        else:
+            times = pd.concat([times, run_time])
+versions = pd.DataFrame({
+    'Tool': tools, 
+    'Subject': subjects, 
+    'Run': runs, 
+    'Version': versions
+})
+versions.to_csv(out_dir / 'versions.csv', index=False)
+vols.to_csv(out_dir / 'volumes.csv', index=False)
+overlaps.to_csv(out_dir / 'overlaps.csv', index=False)
+times.to_csv(out_dir / 'times.csv', index=False)
+
+sys.exit(0)
+
+# eof

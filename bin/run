@@ -1,0 +1,149 @@
+#!/bin/bash
+
+progname=`basename $0`
+
+if [ $# -eq 0 ]
+then
+    cat << EOF
+
+usage: $progname [options] [run specifiers]
+
+Options are:
+
+    -v -- verbose
+    --pre-only -- only run preprocess (if defined)
+    --run-only -- only run the main analysis
+    --post-only -- only run postprocess (if defined)
+
+Run specifiers are "<tool>,<subject>" pairs.  Run specifiers may be taken 
+from a file using "-r <filename>".  Run all tool/subject pairs with "-a".
+
+EOF
+    exit 1
+fi
+
+getopt_results=`getopt -n $progname -o var: -l pre-only,run-only,post-only -- "$@"`
+eval set -- "$getopt_results"
+
+runs_file=`mktemp`
+trap "rm -f $runs_file" EXIT
+
+verbose=
+all_runs=
+runs_spec_file=
+pre_flag=1
+run_flag=1
+post_flag=1
+
+while [ "$1" ]
+do
+    if [ $1 = -- ] ; then shift ; break ; fi
+    if [ $1 = -v ] ; then verbose=1 ; fi
+    if [ $1 = -a ] ; then all_runs=1 ; fi
+    if [ $1 = -r ] ; then shift ; runs_spec_file="$1" ; fi
+    if [ $1 = --pre-only ] ; then run_flag= ; post_flag= ; fi
+    if [ $1 = --run-only ] ; then pre_flag= ; post_flag= ; fi
+    if [ $1 = --post-only ] ; then pre_flag= ; run_flag= ; fi
+    shift
+done
+
+if [ $all_runs ]
+then
+    for t in `ls -1 tools`
+    do
+        for s in `ls -1 source`
+        do
+            echo $t,$s >> $runs_file
+        done
+    done
+else
+    if [ ! -z "$runs_spec_file" ]
+    then
+        if [ ! -e "$runs_spec_file" ]
+        then
+            echo "$progname: $runs_spec_file: no such file" >&2
+            exit 1
+        fi
+        runs_from_file=`cat $runs_spec_file`
+    else
+        runs_from_file=
+    fi
+    for run in $runs_from_file "$@"
+    do
+        tool=`echo "$run" | awk -F, '{print $1}'`
+        if [ ! -e "tools/$tool" ]
+        then
+            echo "$progname: unknown tool \"$tool\"" >&2
+            continue
+        fi
+        subject=`echo "$run" | awk -F, '{print $2}'`
+        if [ ! -e "source/$subject" ]
+        then
+            echo "$progname: unknown subject \"$subject\"" >&2
+            continue
+        fi
+        echo "$tool,$subject" >> $runs_file
+    done
+fi
+
+n_runs=`wc -l $runs_file | awk '{print $1}'`
+if [ $n_runs -eq 0 ]
+then
+    echo "$progname: no runs defined" >&2
+    exit 1
+fi
+
+export TP_HOME=`realpath .`
+sort -u $runs_file | while read run
+do
+    tool=`echo "$run" | awk -F, '{print $1}'`
+    subject=`echo "$run" | awk -F, '{print $2}'`
+    echo $tool $subject
+    export TOOL_DIR=`realpath tools/$tool`
+    export SOURCE_DIR=`realpath source/$subject`
+    run_dir="runs/$tool/$subject"
+    if [ ! -e "$run_dir" ]
+    then
+        mkdir -p "$run_dir/data"
+    fi
+    cd "$run_dir"
+    if [ ! -e version ]
+    then
+        $TOOL_DIR/version > version
+    fi
+    if [ ! -z "$pre_flag" -a -e $TOOL_DIR/preprocess ]
+    then
+        echo "    preprocess"
+        if [ $verbose ]
+        then
+            ( cd data && $TOOL_DIR/preprocess ; echo $? > ../status.preprocess ) 2>&1 | tee output.preprocess
+        else
+            ( cd data && $TOOL_DIR/preprocess ; echo $? > ../status.preprocess ) &> output.preprocess
+        fi
+    fi
+    if [ ! -z "$run_flag" ]
+    then
+        echo "    run"
+        if [ $verbose ]
+        then
+            time ( ( cd data && $TOOL_DIR/run ; echo $? > ../status ) | tee output 2>&1 ) 2> time
+        else
+            time ( cd data && $TOOL_DIR/run &> ../output ; echo $? > ../status ) 2> time
+        fi
+    fi
+    if [ ! -z "$post_flag" -a -e $TOOL_DIR/postprocess ]
+    then
+        echo "    postprocess"
+        if [ $verbose ]
+        then
+            ( cd data && $TOOL_DIR/postprocess ; echo $? > ../status.postprocess ) 2>&1 | tee output.postprocess
+        else
+            ( cd data && $TOOL_DIR/postprocess ; echo $? > ../status.postprocess ) &> output.postprocess
+        fi
+    fi
+    cd ../../..
+done
+
+exit 0
+
+# eof
