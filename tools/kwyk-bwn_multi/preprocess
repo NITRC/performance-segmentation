@@ -1,0 +1,9 @@
+#!/bin/sh
+
+docker pull neuronets/kwyk:latest-cpu
+
+cp $SOURCE_DIR/anat.nii.gz .
+
+exit 0
+
+# eof

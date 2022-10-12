@@ -1,0 +1,32 @@
+#!/bin/sh -e
+
+mri_convert subject/mri/aseg.auto.mgz \
+            -rl $SOURCE_DIR/anat.nii.gz \
+            -rt nearest \
+            -ns 1 \
+            resliced.nii.gz
+
+vol-tr -m $TOOL_DIR/fs.map \
+       resliced.nii.gz \
+       seg.nii.gz
+
+vol-slice --size 256 \
+          --directions C \
+          --suppress-labels \
+          --base-lut $TP_HOME/lib/tri.colors \
+          seg.nii.gz \
+          seg.png
+
+vol-vol -l $TP_HOME/lib/tri.colors seg.nii.gz vol.csv
+
+if [ -e $SOURCE_DIR/seg.nii.gz ]
+then
+    vol-dice -l $TP_HOME/lib/tri.colors \
+             $SOURCE_DIR/seg.nii.gz \
+             seg.nii.gz \
+             overlaps.csv
+fi
+
+exit 0
+
+# eof

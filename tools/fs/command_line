@@ -1,0 +1,1 @@
+recon-all -autorecon1 -autorecon2 -subjid subject -i anat.nii.gz

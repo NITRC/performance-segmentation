@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+cat /usr/local/fsl/etc/fslversion
+
+exit 0
+
+# eof

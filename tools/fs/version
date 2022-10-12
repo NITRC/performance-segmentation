@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+cat $FREESURFER_HOME/build-stamp.txt
+
+exit 0
+
+# eof

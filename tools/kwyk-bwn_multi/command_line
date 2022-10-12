@@ -1,0 +1,1 @@
+docker run --rm -v $(pwd):/data neuronets/kwyk:latest-cpu -m bwn_multi anat.nii.gz output

@@ -1,0 +1,9 @@
+#!/bin/sh
+
+export SUBJECTS_DIR=`pwd`
+
+recon-all -autorecon1 -autorecon2 -subjid subject -i $SOURCE_DIR/anat.nii.gz
+
+exit 0
+
+# eof

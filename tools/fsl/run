@@ -1,0 +1,9 @@
+#!/bin/sh -e
+
+fslreorient2std $SOURCE_DIR/anat.nii.gz anat_r.nii.gz
+bet anat_r anat_r_brain
+fast -o anat_fast anat_r_brain
+
+exit 0
+
+# eof
