@@ -1,15 +1,14 @@
 # NITRC tool performance: segmentation
 
 This repository contains code for preparing segmentation data for
-NITRC's tool performance project.
-
-See https://www.nitrc.org/projects/performance/ for details.
+[NITRC's tool performance
+project](https://www.nitrc.org/projects/performance/).
 
 ## Installation
 
 Start a [NITRC Computational Environment](https://www.nitrc.org/ce/)
-(CE) instance, Version v0.56-2.  Set up the CE according to the
-documentation, and add a FreeSurfer license.
+(CE) instance, v0.56-2.  Set up the CE according to the documentation
+and add a FreeSurfer license.
 
 Install Python 3.10 from source.  (Code for this project requires
 a version of Python newer than that supported by the base system
@@ -19,12 +18,12 @@ of the CE.)  Install packages given in `requirements.txt`:
 
 ## Running
 
-First, download the source images.
+First download the source images.
 
 From [The Internet Brain Segmentation
 Repository](https://www.nitrc.org/projects/ibsr) (IBSR), download
 `IBSR_##_ANALYZE.tgz` from the IBSR_V2.0 release and put them in
-raw/ibsr/ relative to this directory.
+`raw/ibsr/` relative to this directory.
 
 From [Brain Segmentation Testing
 Protocol](https://www.nitrc.org/projects/bstp) (BSTP), download
@@ -33,58 +32,52 @@ Protocol](https://www.nitrc.org/projects/bstp) (BSTP), download
 and pulse sequence"), and
 `OASIS_Baseline_scan_144_healthy_participants.zip` and
 `OASIS_Follow_up_scan_144_healthy_participants.zip` (from "Longitudinal
-images") and put them under raw/bstp/.
+images") and put them under `raw/bstp/`.
 
 Checksums for these source files can be found in `MD5SUMS`.
 
-Prepare the source data by running:
-
-```bin/prepare_source```
-
-This will create `tmp/` and `source/`.
+Prepare the source data by running `bin/prepare_source`.  This will
+create `tmp/` and `source/`.
 
 Run the segmentations using `bin/run`.  This will create `runs/`
 containing run data.
 
-Then run `bin/compile`, which compiles run data and creates images
-and plots.  This creates `data/`, which is packaged and released
-[on NITRC](https://www.nitrc.org/frs/?group_id=1591).  Note that
-`compile` checks for and excludes failed runs.  Watch the output
-for reports.
+Run `bin/compile` to compile run data and create images and plots.
+This creates `data/`, which is packaged and released [on
+NITRC](https://www.nitrc.org/frs/?group_id=1591).  Note that `compile`
+checks for and excludes failed runs; watch the output for reports.
 
 `bin/build` is used internally by NITRC to prepare content displayed
 on NITRC.
 
 ## Internals
 
-`bin/run` runs analyses in series so runtimes are measured for a
+`bin/run` runs analyses in series so runtimes are measured on a
 dedicated machine.  It is possible to run analyses on separate
-machines and join the data in `runs/` after the fact by using the
-`-r` option to `bin/run`.
+machines by using the `-r` option to `bin/run`.
 
-Each tool to run is configured by files under `tools/`.  Each tool
-(or each run configuration of each tool) has a subdirectory containing
-the following files:
+Each tool in the analysis is configured by files under `tools/`.
+Each tool (or a run configuration of each tool) has a subdirectory
+containing the following files:
 
 * `command_line`: The command line to be displayed on NITRC's report.
   This file is not actually used to run the analysis.
 * `name`: The tool name to be displayed on NITRC's report.
 * `nitrc_id`: The NITRC ID of the tool.
-* `run`: An executable that performs the analysis.
 * `version`: An executable that reports the version of the tool.
+* `run`: An executable that performs the analysis.
 * `preprocess` (optional): An executable that preprocesses the data
   to prepare it for the run.  The time taken by `preprocess` is not
   counted in the runtime.
-* `postprocess*` (optional): An executable that postprocesses the
+* `postprocess` (optional): An executable that postprocesses the
   data after the run.  The time taken by `postprocess` is not counted
-i  n the runtime.
+  in the runtime.
 
-In addition, tool-specific files can also be stored in each subdirectory.
+In addition, tool-specific files can be stored in each subdirectory.
 
-`bin/run` creates `runs/`, under which is a directory for each tool,
-under each of which is a directory for one run (coded by a subject
-ID).  This second subdirectory is the run directory, under which
-is written:
+`bin/run` creates `runs/`, under which is a directory for each tool.
+Under each of these are directories, one per run, coded by subject
+IDs.  Under each run directory is written:
 
 * `data/`: The data directory containing data from the run.
 * `output`: The output (stdout and stderr) from the run.
@@ -99,7 +92,7 @@ If `preprocess` or `postprocess` are defined for a tool,
 `data/` is the working directory for `run`, `preprocess`, and
 `postprocess`, so each can limit itself to writing to its current
 directory.  The following environment variables are defined and
-available from the scripts:
+available to the scripts:
 
 * `TP_HOME`: This top-level directory.  This can be used to access
   global configuration files under `lib/`.
