@@ -9,11 +9,12 @@ import json
 import pandas as pd
 
 disclaimer = """
-The tool performance pages are in beta.  Please see the NITRC
+<p>The tool performance pages are in beta.  Please see the NITRC
 <a href="https://www.nitrc.org/projects/performance/">Tool
 Performance Project</a> for more information and contact <a
 href="mailto:moderator@nitrc.org">moderator@nitrc.org</a> with questions
-or comments.
+or comments.</p>
+<p>NITRC Segmentation Performance Version 1.0<p>
 """
 
 overview_method = """
