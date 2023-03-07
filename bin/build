@@ -167,7 +167,7 @@ for tool in ['fs', 'fsl', 'kwyk-bwn_multi']:
     section = {
         'type': 'select', 
         'id': 'retest', 
-        'title': 'Test/Retest Accuracy', 
+        'title': 'Test/Retest Reliability', 
         'method': test_retest_method.format(tool_name=tool_name).strip(), 
         'subjects': []
     }
