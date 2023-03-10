@@ -47,30 +47,26 @@ def format_time(s):
     (min, sec) = divmod(s, 60)
     return f'{min}:{sec:02d}'
 
-def copy_pngs(src_root, dst_root):
-    """Copy .png files from src_root to dst_root"""
-    if not isinstance(src_root, pathlib.Path):
-        src_root = pathlib.Path(src_root)
-    if not isinstance(dst_root, pathlib.Path):
-        dst_root = pathlib.Path(dst_root)
-    stack = [src_root]
-    while stack:
-        path = stack.pop()
-        for subpath in path.iterdir():
-            if subpath.is_dir():
-                stack.append(subpath)
-                continue
-            if not subpath.as_posix().endswith('.png'):
-                continue
-            dst = dst_root / subpath.relative_to(src_root)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(subpath, dst)
+urls = {}
+def register_url(src, url):
+    """Register a file for use by a URL.
+
+    Given a file and a URL, this function will copy the file to the
+    destination directory and record the file/URL association.  If the
+    passed URL has been encountered before, this function verifies that
+    passed file is the same as the file used before.
+    """
+    if url in urls:
+        assert src == urls[url]
+        return
+    urls[url] = src
+    base_dir = pathlib.Path('nitrc/www')
+    dest = base_dir / pathlib.Path(url).relative_to('/')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(src, dest)
     return
 
 pathlib.Path('nitrc/common/comparison/data').mkdir(parents=True, exist_ok=True)
-copy_pngs('data/runs', 'nitrc/www/comparison/segmentation/runs')
-copy_pngs('data/source', 'nitrc/www/comparison/segmentation/source')
-copy_pngs('data/tools', 'nitrc/www/comparison/segmentation/tools')
 
 progname = os.path.basename(sys.argv[0])
 
@@ -116,7 +112,9 @@ for tool in ['fs', 'fsl', 'kwyk-bwn_multi']:
     }
 
     accuracy_url = f'/comparison/segmentation/tools/{tool}/accuracy.png'
+    register_url(f'data/tools/{tool}/accuracy.png', accuracy_url)
     tool_accuracy_url = f'/comparison/segmentation/tools/{tool}/tool_accuracy.png'
+    register_url(f'data/tools/{tool}/tool_accuracy.png', tool_accuracy_url)
     section = {
         'type': 'basic', 
         'title' : 'Accuracy Overview (IBSR)',
@@ -137,9 +135,13 @@ for tool in ['fs', 'fsl', 'kwyk-bwn_multi']:
     }
     for subject in [ f'IBSR_{i:02d}' for i in range(1, 19) ]:
         url = f'/comparison/segmentation/tools/{tool}/accuracy/{subject}.png'
+        register_url(f'data/tools/{tool}/accuracy/{subject}.png', url)
         seg_anat_url = f'/comparison/segmentation/source/{subject}/anat.png'
+        register_url(f'data/source/{subject}/anat.png', seg_anat_url)
         seg_gs_url = f'/comparison/segmentation/source/{subject}/seg.png'
+        register_url(f'data/source/{subject}/seg.png', seg_gs_url)
         seg_url = f'/comparison/segmentation/runs/{tool}/{subject}/seg.png'
+        register_url(f'data/runs/{tool}/{subject}/seg.png', seg_url)
         subject_overlaps = overlaps[overlaps['Subject']==subject]
         tool_overlaps = subject_overlaps[subject_overlaps['Tool']==tool]
         vals = []
@@ -173,6 +175,7 @@ for tool in ['fs', 'fsl', 'kwyk-bwn_multi']:
     }
     for subject in [ f'BSTP_{s}{i}' for s in ('A', 'B') for i in range(1, 5) ]:
         url = f'/comparison/segmentation/tools/{tool}/test-retest/{subject}.png'
+        register_url(f'data/tools/{tool}/test-retest/{subject}.png', url)
         subject = {
             'name': subject, 
             'id': subject, 
