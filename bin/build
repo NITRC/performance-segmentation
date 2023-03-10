@@ -185,6 +185,7 @@ for tool in ['fs', 'fsl', 'kwyk-bwn_multi']:
 
     with open(f'nitrc/common/comparison/data/{tool_id}.json', 'w') as f:
         json.dump(data, f, indent=4)
+        print(file=f)
 
 sys.exit(0)
 
