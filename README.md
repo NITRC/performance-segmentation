@@ -100,3 +100,15 @@ available to the scripts:
   tool-specific configuration files.
 * `SOURCE_DIR`: The subject's directory under `source/`, used to
   access the source data.
+
+## Space needs
+
+Run Version 1.0 uses the following disk space:
+
+| Directory | Space |
+|---|---|
+|data|654M|
+|raw|3.1G|
+|runs|67G|
+|source|2.9G|
+|tmp|7.6G|
